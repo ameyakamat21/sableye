@@ -57,8 +57,9 @@ public class SableyePictureCallback implements Camera.PictureCallback {
             return;
         }
 
-        imageView.setImageBitmap(imgBitmap);
-        imgProcessingCallback.imageBarcodeTask(imgBitmap);
-        imgProcessingCallback.imageTextDetectTask(imgBitmap);
+        Bitmap rotatedBitmap = ImageProcessingCallback.rotateBitmap(imgBitmap, 90);
+        imageView.setImageBitmap(rotatedBitmap);
+        imgProcessingCallback.imageBarcodeTask(rotatedBitmap);
+        imgProcessingCallback.imageTextDetectTask(rotatedBitmap);
     }
 }
