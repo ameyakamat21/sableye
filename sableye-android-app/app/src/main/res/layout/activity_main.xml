@@ -15,30 +15,42 @@
         android:layout_weight="1"
         android:id="@+id/top_half_layout">
 
-    <Button
-        android:id="@+id/get_location_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Get location"
-        android:onClick="getLocationBtnCallback" />
+        <Button
+            android:id="@+id/get_location_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Get location"
+            android:onClick="getLocationBtnCallback" />
 
-    <Button
-        android:id="@+id/choose_img_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Pick image"
-        android:onClick="pickImageBtnCallback"
-        android:layout_below="@+id/get_location_btn"
-        android:layout_alignParentStart="true" />
+        <Button
+            android:id="@+id/choose_img_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pick image"
+            android:onClick="pickImageBtnCallback"
+            android:layout_below="@+id/get_location_btn"
+            android:layout_alignParentStart="true" />
 
-    <!--Button
-        android:id="@+id/button_qr_process"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Process QR"
-        android:onClick="processQrCallback"
-        android:layout_below="@+id/choose_img_btn"
-        android:layout_alignParentStart="true" /-->
+
+        <Button
+            android:id="@+id/take_photo_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Take photo"
+            android:onClick="takePhotoBtnCallback"
+            android:layout_alignParentStart="true" />
+
+
+
+
+        <!--Button
+            android:id="@+id/button_qr_process"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Process QR"
+            android:onClick="processQrCallback"
+            android:layout_below="@+id/choose_img_btn"
+            android:layout_alignParentStart="true" /-->
 
     </LinearLayout>
 

@@ -1,10 +1,12 @@
 package com.cmu.ece.build18.firstapp;
 
 import android.*;
+import android.Manifest;
 import android.content.IntentFilter;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.View;
 import android.content.Context;
 import android.widget.Toast;
@@ -13,7 +15,10 @@ import android.widget.TextView;
 import android.widget.ScrollView;
 import android.net.Uri;
 import android.content.pm.PackageManager;
-import 	android.hardware.Camera;
+import android.hardware.Camera;
+import android.graphics.ImageFormat;
+import android.view.SurfaceView;
+import android.graphics.SurfaceTexture;
 
 //google play services imports
 import com.google.android.gms.common.ConnectionResult;
@@ -41,8 +46,10 @@ import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
 
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.FileNotFoundException;
+import java.io.File;
 
 
 public class MainActivity extends AppCompatActivity implements
@@ -50,20 +57,36 @@ public class MainActivity extends AppCompatActivity implements
 
     public static final String STATE_LATITUDE = "STATE_LAT";
     public static final String STATE_LONGITUDE = "STATE_LON";
+    public static final String IMAGE_DIRECTORY_PATH = "/sableye_media/";
+    public static final int LOCATION_PERMISSION_CODE = 1;
+    public static final int CAMERA_PERMISSION_CODE = 2;
     private GoogleApiClient mGoogleApiClient;
     private double currLatitude, currLongitude;
     public static final int PICK_IMAGE_REQUEST = 1;
-    TextView displayTextView;
+    private TextView displayTextView;
+    private Camera backCamera;
+    private File imageDirPath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //initialize google play services interface
         displayTextView = (TextView) findViewById(R.id.textview);
         displayTextView.append("<No text yet>");
 
+        //create directory (if not present) to store images
+        imageDirPath = new File(Environment.
+                getExternalStorageDirectory() + IMAGE_DIRECTORY_PATH);
+
+        if (!imageDirPath.exists()) {
+            imageDirPath.mkdir();
+        }
+
+        //initialize camera
+        cameraInit();
+
+        //initialize google play services interface
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
@@ -79,14 +102,16 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
+        String permissionsGrantedStr = "";
         for(int i=0; i<grantResults.length; i++) {
             if(grantResults[i] != PackageManager.PERMISSION_GRANTED) {
                 showToast("Did not get permission for " + permissions[i] + ":(");
                 return;
             }
+            permissionsGrantedStr += permissions[i] + ", ";
         }
 
-        showToast("Got all permissions!");
+        showToast("Got permissions! (" + permissionsGrantedStr + ")");
     }
 
 
@@ -114,7 +139,7 @@ public class MainActivity extends AppCompatActivity implements
 
             String[] permisionsToRequest = {android.Manifest.permission.ACCESS_COARSE_LOCATION,
                     android.Manifest.permission.ACCESS_FINE_LOCATION};
-            requestPermissions(permisionsToRequest, 1);
+            requestPermissions(permisionsToRequest, LOCATION_PERMISSION_CODE);
         }
         Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
                 mGoogleApiClient);
@@ -146,6 +171,10 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if(backCamera != null) {
+            backCamera.release();
+            backCamera=null;
+        }
     }
 
     private void showToast(String msg) {
@@ -169,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements
 
             String[] permisionsToRequest = {android.Manifest.permission.ACCESS_COARSE_LOCATION,
                     android.Manifest.permission.ACCESS_FINE_LOCATION};
-            requestPermissions(permisionsToRequest, 1);
+            requestPermissions(permisionsToRequest, LOCATION_PERMISSION_CODE);
         }
 
         Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
@@ -310,6 +339,78 @@ public class MainActivity extends AppCompatActivity implements
         return parsedValues;
     }
 
+    public void takePhotoBtnCallback(View view) {
+        backCamera.takePicture(null, null, new SableyePictureCallback(imageDirPath));
+    }
 
+    /** Check if this device has a camera
+     *
+     */
+    private boolean checkCameraHardware(Context context) {
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){
+            // this device has a camera
+            return true;
+        } else {
+            // no camera on this device
+            return false;
+        }
+    }
+
+    public void cameraInit() {
+
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) !=
+                PackageManager.PERMISSION_GRANTED ||
+
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                        PackageManager.PERMISSION_GRANTED ||
+
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED) {
+
+            Log.e("PERMISSION", "Does not have camera permission!");
+            showToast("Does not have camera permission! Requesting..");
+
+            String[] permisionsToRequest = {Manifest.permission.CAMERA,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE};
+
+            requestPermissions(permisionsToRequest, CAMERA_PERMISSION_CODE);
+        }
+
+        backCamera = getCameraInstance();
+
+        if(backCamera == null) {
+            return;
+        }
+        Camera.Parameters parameters = backCamera.getParameters();
+        parameters.setPictureFormat(ImageFormat.JPEG);
+        backCamera.setParameters(parameters);
+        SurfaceView mview = new SurfaceView(getBaseContext());
+        SurfaceTexture surfaceTexture = new SurfaceTexture(10);
+
+        try {
+            backCamera.setPreviewTexture(surfaceTexture);
+        } catch (IOException e) {
+            showToast("Got IOException while setting preview texture.");
+        }
+//        backCamera.setPreviewDisplay(mview.getHolder());
+//        backCamera.setPreviewDisplay(null);
+        backCamera.startPreview();
+        //backCamera.takePicture(null, null, new SableyePictureCallback(imageDirPath));
+        //backCamera.stopPreview();
+    }
+
+    /** A safe way to get an instance of the Camera object. */
+    public Camera getCameraInstance(){
+        Camera c = null;
+        try {
+            c = Camera.open(); // attempt to get a Camera instance
+        }
+        catch (Exception e){
+            // Camera is not available (in use or does not exist)
+            showToast("Camera not available");
+        }
+        return c; // returns null if camera is unavailable
+    }
 
 }
