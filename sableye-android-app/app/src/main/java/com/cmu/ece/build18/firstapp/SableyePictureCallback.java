@@ -1,11 +1,14 @@
 package com.cmu.ece.build18.firstapp;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import android.widget.ImageView;
 import android.util.Log;
 
 import android.provider.MediaStore.Files.FileColumns;
@@ -17,18 +20,25 @@ public class SableyePictureCallback implements Camera.PictureCallback {
 
     public static final String TAG="PICCALLBACK";
 
-    private File imgDirectoryPath;
-    public SableyePictureCallback(File imgDirectoryPath) {
-        this.imgDirectoryPath = imgDirectoryPath;
+    private File imgFilePath;
+    private ImageView imageView;
+    private ImageProcessingCallback imgProcessingCallback;
+
+    public SableyePictureCallback(File imgFilePath, ImageView imageView,
+                                  ImageProcessingCallback imgProcessingCallback) {
+        this.imgFilePath = imgFilePath;
+        this.imageView=imageView;
+        this.imgProcessingCallback=imgProcessingCallback;
 
     }
 
     @Override
     public void onPictureTaken(byte[] data, Camera camera) {
         Log.e(TAG, "onPictureTaken()");
+
+        //write to file
         try {
-            File imageFilePath = new File(imgDirectoryPath, "latest.jpeg");
-            FileOutputStream fos = new FileOutputStream(imageFilePath);
+            FileOutputStream fos = new FileOutputStream(imgFilePath);
             fos.write(data);
             fos.close();
         } catch (FileNotFoundException e) {
@@ -36,5 +46,19 @@ public class SableyePictureCallback implements Camera.PictureCallback {
         } catch (IOException e) {
             Log.d(TAG, "Error accessing file: " + e.getMessage());
         }
+
+        //display file in ImageView
+        Bitmap imgBitmap = BitmapFactory.
+                decodeFile(imgFilePath.getAbsolutePath());
+
+        if(imgBitmap == null) {
+            Log.e("ERR!", "Bitmap null in onPictureTaken()");
+            imageView.setBackgroundColor(66);
+            return;
+        }
+
+        imageView.setImageBitmap(imgBitmap);
+        imgProcessingCallback.imageBarcodeTask(imgBitmap);
+        imgProcessingCallback.imageTextDetectTask(imgBitmap);
     }
 }

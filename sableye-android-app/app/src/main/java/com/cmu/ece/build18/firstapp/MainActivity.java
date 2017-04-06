@@ -58,20 +58,24 @@ public class MainActivity extends AppCompatActivity implements
     public static final String STATE_LATITUDE = "STATE_LAT";
     public static final String STATE_LONGITUDE = "STATE_LON";
     public static final String IMAGE_DIRECTORY_PATH = "/sableye_media/";
+    public static final String IMAGE_FILE_NAME = "latest.jpeg";
     public static final int LOCATION_PERMISSION_CODE = 1;
     public static final int CAMERA_PERMISSION_CODE = 2;
     private GoogleApiClient mGoogleApiClient;
     private double currLatitude, currLongitude;
     public static final int PICK_IMAGE_REQUEST = 1;
-    private TextView displayTextView;
     private Camera backCamera;
     private File imageDirPath;
+    private ImageView imageDisplay;
+    private TextView displayTextView;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        imageDisplay = (ImageView) findViewById(R.id.imgview);
         displayTextView = (TextView) findViewById(R.id.textview);
         displayTextView.append("<No text yet>");
 
@@ -249,16 +253,6 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    public void processQrCallback(View view) {
-
-        ImageView myImageView = (ImageView) findViewById(R.id.imgview);
-        Bitmap myBitmap = BitmapFactory.decodeResource(
-                getApplicationContext().getResources(),
-                R.drawable.puppy);
-        myImageView.setImageBitmap(myBitmap);
-
-        imageBarcodeTask(myBitmap);
-    }
 
     private void imageTextDetectTask(Bitmap imgBitmap) {
         Context context = getApplicationContext();
@@ -294,14 +288,12 @@ public class MainActivity extends AppCompatActivity implements
         for(int i=0; i<textBlocks.size(); i++) {
 
             TextBlock thisTextBlock = textBlocks.get(i);
-            if(thisTextBlock == null) {
+            if (thisTextBlock == null) {
                 displayTextView.append("<null>");
                 continue;
             }
             displayTextView.append(textBlocks.get(i).getValue() + "\n");
         }
-
-
     }
 
 
@@ -340,7 +332,12 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     public void takePhotoBtnCallback(View view) {
-        backCamera.takePicture(null, null, new SableyePictureCallback(imageDirPath));
+        File imgFile = new File(imageDirPath + "latest.jpeg");
+        ImageProcessingCallback imgProcCallback = new ImageProcessingCallback(
+                getApplicationContext(), displayTextView);
+
+        backCamera.takePicture(null, null,
+                new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback));
     }
 
     /** Check if this device has a camera
@@ -382,6 +379,7 @@ public class MainActivity extends AppCompatActivity implements
         if(backCamera == null) {
             return;
         }
+
         Camera.Parameters parameters = backCamera.getParameters();
         parameters.setPictureFormat(ImageFormat.JPEG);
         backCamera.setParameters(parameters);
