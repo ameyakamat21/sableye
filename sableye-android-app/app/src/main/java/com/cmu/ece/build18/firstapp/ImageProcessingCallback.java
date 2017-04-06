@@ -10,6 +10,8 @@ import android.widget.Toast;
 import android.widget.TextView;
 import android.graphics.Matrix;
 
+import android.speech.tts.TextToSpeech;
+
 import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
@@ -24,13 +26,16 @@ public class ImageProcessingCallback {
 
     private Context context;
     private TextView displayTextView;
+    private TextToSpeech textToSpeech;
 
-    public ImageProcessingCallback(Context context, TextView displayTextView) {
+    public ImageProcessingCallback(Context context, TextView displayTextView,
+                                   TextToSpeech textToSpeech) {
         this.context=context;
         this.displayTextView=displayTextView;
+        this.textToSpeech=textToSpeech;
     }
 
-    public void imageTextDetectTask(Bitmap imgBitmap) {
+    public String imageTextDetectTask(Bitmap imgBitmap) {
 
         TextRecognizer textRecognizer = new TextRecognizer.Builder(context).build();
 
@@ -57,10 +62,12 @@ public class ImageProcessingCallback {
         SparseArray<TextBlock> textBlocks = textRecognizer.detect(frame);
         //clear displaytextview
         displayTextView.setText("");
+
+        String textForSpeech="";
         if(textBlocks.size() < 1) {
             showToast("No text detected.");
             displayTextView.setText("No text detected.");
-            return;
+            return "";
         }
 
         for(int i=0; i<textBlocks.size(); i++) {
@@ -71,7 +78,10 @@ public class ImageProcessingCallback {
                 continue;
             }
             displayTextView.append(textBlocks.get(i).getValue() + "\n");
+            textForSpeech += textBlocks.get(i).getValue() + ". ";
         }
+
+        return textForSpeech;
     }
 
 
@@ -102,7 +112,7 @@ public class ImageProcessingCallback {
         for(int i=0; i<barcodes.size(); i++) {
             thisCode = barcodes.valueAt(i);
             showToast(thisCode.rawValue);
-            parsedValues += "\n" + thisCode.rawValue;
+            parsedValues += thisCode.rawValue + ". ";
 
         }
 

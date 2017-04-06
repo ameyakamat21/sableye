@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import android.speech.tts.TextToSpeech;
 import android.widget.ImageView;
 import android.util.Log;
 
@@ -23,12 +24,15 @@ public class SableyePictureCallback implements Camera.PictureCallback {
     private File imgFilePath;
     private ImageView imageView;
     private ImageProcessingCallback imgProcessingCallback;
+    private TextToSpeech textToSpeech;
 
     public SableyePictureCallback(File imgFilePath, ImageView imageView,
-                                  ImageProcessingCallback imgProcessingCallback) {
+                                  ImageProcessingCallback imgProcessingCallback,
+                                  TextToSpeech textToSpeech) {
         this.imgFilePath = imgFilePath;
         this.imageView=imageView;
         this.imgProcessingCallback=imgProcessingCallback;
+        this.textToSpeech=textToSpeech;
 
     }
 
@@ -59,7 +63,8 @@ public class SableyePictureCallback implements Camera.PictureCallback {
 
         Bitmap rotatedBitmap = ImageProcessingCallback.rotateBitmap(imgBitmap, 90);
         imageView.setImageBitmap(rotatedBitmap);
-        imgProcessingCallback.imageBarcodeTask(rotatedBitmap);
-        imgProcessingCallback.imageTextDetectTask(rotatedBitmap);
+        String textToSpeak = imgProcessingCallback.imageBarcodeTask(rotatedBitmap);
+        textToSpeak += imgProcessingCallback.imageTextDetectTask(rotatedBitmap);
+        textToSpeech.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null);
     }
 }

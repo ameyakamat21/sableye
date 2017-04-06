@@ -19,6 +19,7 @@ import android.hardware.Camera;
 import android.graphics.ImageFormat;
 import android.view.SurfaceView;
 import android.graphics.SurfaceTexture;
+import android.speech.tts.TextToSpeech;
 
 //google play services imports
 import com.google.android.gms.common.ConnectionResult;
@@ -51,6 +52,7 @@ import java.io.InputStream;
 import java.io.FileNotFoundException;
 import java.io.File;
 
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements
         ConnectionCallbacks, OnConnectionFailedListener {
@@ -68,7 +70,8 @@ public class MainActivity extends AppCompatActivity implements
     private File imageDirPath;
     private ImageView imageDisplay;
     private TextView displayTextView;
-
+    private TextToSpeech textToSpeech;
+    private boolean isTtsReady=false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,6 +92,21 @@ public class MainActivity extends AppCompatActivity implements
 
         //initialize camera
         cameraInit();
+
+        //Initialize TextToSpeech module
+        textToSpeech = new TextToSpeech(getApplicationContext(),
+                new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != TextToSpeech.ERROR) {
+                    textToSpeech.setLanguage(Locale.US);
+                    showToast("TTS module initialized!");
+                    isTtsReady=true;
+                } else {
+                    showToast("Error initializing TTS module.");
+                }
+            }
+        });
 
         //initialize google play services interface
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -332,12 +350,17 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     public void takePhotoBtnCallback(View view) {
+        if(!isTtsReady) {
+            showToast("TTS module initialized yet!");
+        }
+
         File imgFile = new File(imageDirPath + "latest.jpeg");
+
         ImageProcessingCallback imgProcCallback = new ImageProcessingCallback(
-                getApplicationContext(), displayTextView);
+                getApplicationContext(), displayTextView, textToSpeech);
 
         backCamera.takePicture(null, null,
-                new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback));
+                new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback, textToSpeech));
     }
 
     /** Check if this device has a camera
