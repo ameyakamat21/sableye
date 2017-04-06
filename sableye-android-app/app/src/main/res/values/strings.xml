@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Second App</string>
+    <string name="app_name">Sableye</string>
+    <string name="low_storage_error">Low Device Storage</string>
 </resources>

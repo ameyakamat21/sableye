@@ -1,13 +1,19 @@
 package com.cmu.ece.build18.firstapp;
 
-import android.support.v4.app.FragmentActivity;
+import android.*;
+import android.content.IntentFilter;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.content.Context;
 import android.widget.Toast;
-
-import com.google.android.gms.analytics.Logger;
+import android.content.Intent;
+import android.widget.TextView;
+import android.widget.ScrollView;
+import android.net.Uri;
+import android.content.pm.PackageManager;
+import 	android.hardware.Camera;
 
 //google play services imports
 import com.google.android.gms.common.ConnectionResult;
@@ -15,32 +21,28 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
-import com.google.android.gms.common.GoogleApiAvailability;
 import android.location.Location;
 import android.util.Log;
 
+//Vision
+import com.google.android.gms.common.api.CommonStatusCodes;
+//import com.google.android.gms.samples.vision.ocrreader.ui.camera.CameraSource;
+//import com.google.android.gms.samples.vision.ocrreader.ui.camera.CameraSourcePreview;
+//import com.google.android.gms.samples.vision.ocrreader.ui.camera.GraphicOverlay;
+import com.google.android.gms.vision.text.TextBlock;
+import com.google.android.gms.vision.text.TextRecognizer;
+
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
 import android.util.SparseArray;
-import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.TextView;
 import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
 
-import android.hardware.usb.UsbManager;
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
 
-import com.hoho.android.usbserial.driver.UsbSerialProber;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
-
-
-import android.hardware.usb.UsbDeviceConnection;
-import java.util.List;
-import java.io.IOException;
+import java.io.InputStream;
+import java.io.FileNotFoundException;
 
 
 public class MainActivity extends AppCompatActivity implements
@@ -50,6 +52,8 @@ public class MainActivity extends AppCompatActivity implements
     public static final String STATE_LONGITUDE = "STATE_LON";
     private GoogleApiClient mGoogleApiClient;
     private double currLatitude, currLongitude;
+    public static final int PICK_IMAGE_REQUEST = 1;
+    TextView displayTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +61,8 @@ public class MainActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_main);
 
         //initialize google play services interface
+        displayTextView = (TextView) findViewById(R.id.textview);
+        displayTextView.append("<No text yet>");
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -69,6 +75,20 @@ public class MainActivity extends AppCompatActivity implements
             currLongitude = savedInstanceState.getDouble(STATE_LONGITUDE);
         }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        for(int i=0; i<grantResults.length; i++) {
+            if(grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                showToast("Did not get permission for " + permissions[i] + ":(");
+                return;
+            }
+        }
+
+        showToast("Got all permissions!");
+    }
+
 
     @Override
     protected void onStart() {
@@ -84,15 +104,25 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onConnected(Bundle connectionHint) {
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+                        PackageManager.PERMISSION_GRANTED) {
+            Log.e("PERMISSION", "Does not have location permission!");
+            showToast("Does not have location permission!");
+
+
+            String[] permisionsToRequest = {android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION};
+            requestPermissions(permisionsToRequest, 1);
+        }
         Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
                 mGoogleApiClient);
 
         if (mLastLocation != null) {
             currLatitude = mLastLocation.getLatitude();
             currLongitude = mLastLocation.getLongitude();
-            showToast("Last loc: (" + currLatitude + ", " + currLongitude + ")");
-        } else  {
-            showToast("Last location was null.");
+
         }
     }
 
@@ -126,43 +156,21 @@ public class MainActivity extends AppCompatActivity implements
         toast.show();
     }
 
-    public void sendUartMessage(View view) {
-
-        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-        if (availableDrivers.isEmpty()) {
-            return;
-        }
-
-// Open a connection to the first available driver.
-        UsbSerialDriver driver = availableDrivers.get(0);
-        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
-        if (connection == null) {
-            // You probably need to call UsbManager.requestPermission(driver.getDevice(), ..)
-            return;
-        }
-
-// Read some data! Most have just one port (port 0).
-        UsbSerialPort port = driver.getPorts().get(0);
-        try {
-            port.open(connection);
-            port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-
-            byte buffer[] = new byte[16];
-            int numBytesRead = port.read(buffer, 1000);
-            Log.d("LOG", "Read " + numBytesRead + " bytes.");
-        } catch (IOException e) {
-            // Deal with error.
-        } finally {
-            try {
-                port.close();
-            } catch (IOException e) {
-                Log.e("ERROR", "Got IOException on port.close(): " + e.getMessage());
-            }
-        }
-    }
 
     public void getLocationBtnCallback(View view) {
+
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+                        PackageManager.PERMISSION_GRANTED) {
+            Log.e("PERMISSION", "Does not have location permission!");
+            showToast("Does not have location permission!");
+
+
+            String[] permisionsToRequest = {android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION};
+            requestPermissions(permisionsToRequest, 1);
+        }
 
         Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
                 mGoogleApiClient);
@@ -180,6 +188,38 @@ public class MainActivity extends AppCompatActivity implements
         //showToast("(" + currLatitude + ", " + currLongitude + ")");
     }
 
+    public void pickImageBtnCallback(View view) {
+        Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
+        photoPickerIntent.setType("image/*");
+        startActivityForResult(photoPickerIntent, PICK_IMAGE_REQUEST);
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Check which request we're responding to
+        if (requestCode == PICK_IMAGE_REQUEST) {
+            // Make sure the request was successful
+            if (resultCode == RESULT_OK) {
+                try {
+                    final Uri imageUri = data.getData();
+                    Log.e("URI", "Got URI: " + imageUri);
+                    final InputStream imageStream = getContentResolver().openInputStream(imageUri);
+                    Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
+                    ImageView imgView = (ImageView)findViewById(R.id.imgview);
+                    imgView.setImageBitmap(selectedImage);
+                    imageBarcodeTask(selectedImage);
+                    imageTextDetectTask(selectedImage);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            showToast("Got unknown activity result");
+            Log.e("ERROR", "Got unknown result");
+        }
+    }
+
     public void processQrCallback(View view) {
 
         ImageView myImageView = (ImageView) findViewById(R.id.imgview);
@@ -188,6 +228,60 @@ public class MainActivity extends AppCompatActivity implements
                 R.drawable.puppy);
         myImageView.setImageBitmap(myBitmap);
 
+        imageBarcodeTask(myBitmap);
+    }
+
+    private void imageTextDetectTask(Bitmap imgBitmap) {
+        Context context = getApplicationContext();
+        TextRecognizer textRecognizer = new TextRecognizer.Builder(context).build();
+
+        // TODO: Set the TextRecognizer's Processor.
+
+        // TODO: Check if the TextRecognizer is operational.
+        if (!textRecognizer.isOperational()) {
+            Log.w("TAG", "Detector dependencies are not yet available.");
+
+            // Check for low storage.  If there is low storage, the native library will not be
+            // downloaded, so detection will not become operational.
+            IntentFilter lowstorageFilter = new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW);
+            boolean hasLowStorage = registerReceiver(null, lowstorageFilter) != null;
+
+            if (hasLowStorage) {
+                Toast.makeText(this, R.string.low_storage_error, Toast.LENGTH_LONG).show();
+                Log.w("TAG", getString(R.string.low_storage_error));
+            }
+        }
+
+        Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
+        SparseArray<TextBlock> textBlocks = textRecognizer.detect(frame);
+        //clear displaytextview
+        displayTextView.setText("");
+        if(textBlocks.size() < 1) {
+            showToast("No text detected.");
+            displayTextView.setText("No text detected.");
+            return;
+        }
+
+        for(int i=0; i<textBlocks.size(); i++) {
+
+            TextBlock thisTextBlock = textBlocks.get(i);
+            if(thisTextBlock == null) {
+                displayTextView.append("<null>");
+                continue;
+            }
+            displayTextView.append(textBlocks.get(i).getValue() + "\n");
+        }
+
+
+    }
+
+
+    /**
+     * Check for barcodes
+     * @param imgBitmap
+     * @return
+     */
+    private String imageBarcodeTask(Bitmap imgBitmap) {
         BarcodeDetector detector =
                 new BarcodeDetector.Builder(getApplicationContext())
                         .setBarcodeFormats(Barcode.DATA_MATRIX | Barcode.QR_CODE)
@@ -195,23 +289,27 @@ public class MainActivity extends AppCompatActivity implements
 
         if(!detector.isOperational()){
             showToast("Could not set up the detector!");
-            return;
+            return "";
         }
 
-        Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
+        Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
         SparseArray<Barcode> barcodes = detector.detect(frame);
         Barcode thisCode=null;
+        String parsedValues = "";
+        if(barcodes.size() < 1) {
+            showToast("No barcodes found.");
+        }
 
         for(int i=0; i<barcodes.size(); i++) {
             thisCode = barcodes.valueAt(i);
             showToast(thisCode.rawValue);
+            parsedValues += "\n" + thisCode.rawValue;
 
         }
 
-        showToast("Hi");
-        showToast("Hello");
-        showToast("Hey");
-
+        return parsedValues;
     }
+
+
 
 }
