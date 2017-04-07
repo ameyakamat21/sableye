@@ -65,8 +65,8 @@ public class ImageProcessingCallback {
 
         String textForSpeech="";
         if(textBlocks.size() < 1) {
-            showToast("No text detected.");
-            displayTextView.setText("No text detected.");
+            //showToast("No text detected.");
+            displayTextView.append("No text detected.");
             return "";
         }
 
@@ -74,7 +74,7 @@ public class ImageProcessingCallback {
 
             TextBlock thisTextBlock = textBlocks.get(i);
             if (thisTextBlock == null) {
-                displayTextView.append("<null>");
+                //displayTextView.append("<null>");
                 continue;
             }
             displayTextView.append(textBlocks.get(i).getValue() + "\n");
@@ -106,7 +106,9 @@ public class ImageProcessingCallback {
         Barcode thisCode=null;
         String parsedValues = "";
         if(barcodes.size() < 1) {
-            showToast("No barcodes found.");
+            //showToast("No barcodes found.");
+            displayTextView.append("<No barcodes.>\n");
+            return "";
         }
 
         for(int i=0; i<barcodes.size(); i++) {

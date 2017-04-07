@@ -47,7 +47,7 @@ import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
 
-
+import java.util.List;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.FileNotFoundException;
@@ -73,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements
     private TextView displayTextView;
     private TextToSpeech textToSpeech;
     private boolean isTtsReady=false;
+    private ImageProcessingCallback imgProcessingCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,6 +110,8 @@ public class MainActivity extends AppCompatActivity implements
             }
         });
 
+        imgProcessingCallback =
+                new ImageProcessingCallback(getApplicationContext(), displayTextView, textToSpeech);
         //initialize google play services interface
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -192,12 +195,29 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        if(backCamera != null) {
+            backCamera.release();
+            backCamera=null;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        cameraInit();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if(backCamera != null) {
             backCamera.release();
             backCamera=null;
         }
+
+        textToSpeech.shutdown();
     }
 
     private void showToast(String msg) {
@@ -260,8 +280,9 @@ public class MainActivity extends AppCompatActivity implements
                     Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
                     ImageView imgView = (ImageView)findViewById(R.id.imgview);
                     imgView.setImageBitmap(selectedImage);
-                    imageBarcodeTask(selectedImage);
-                    imageTextDetectTask(selectedImage);
+                    String textToSpeak=imgProcessingCallback.imageBarcodeTask(selectedImage);
+                    textToSpeak+=imgProcessingCallback.imageTextDetectTask(selectedImage);
+                    textToSpeech.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
@@ -273,91 +294,25 @@ public class MainActivity extends AppCompatActivity implements
     }
 
 
-    private void imageTextDetectTask(Bitmap imgBitmap) {
-        Context context = getApplicationContext();
-        TextRecognizer textRecognizer = new TextRecognizer.Builder(context).build();
-
-        // TODO: Set the TextRecognizer's Processor.
-
-        // TODO: Check if the TextRecognizer is operational.
-        if (!textRecognizer.isOperational()) {
-            Log.w("TAG", "Detector dependencies are not yet available.");
-
-            // Check for low storage.  If there is low storage, the native library will not be
-            // downloaded, so detection will not become operational.
-            IntentFilter lowstorageFilter = new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW);
-            boolean hasLowStorage = registerReceiver(null, lowstorageFilter) != null;
-
-            if (hasLowStorage) {
-                Toast.makeText(this, R.string.low_storage_error, Toast.LENGTH_LONG).show();
-                Log.w("TAG", getString(R.string.low_storage_error));
-            }
-        }
-
-        Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
-        SparseArray<TextBlock> textBlocks = textRecognizer.detect(frame);
-        //clear displaytextview
-        displayTextView.setText("");
-        if(textBlocks.size() < 1) {
-            showToast("No text detected.");
-            displayTextView.setText("No text detected.");
-            return;
-        }
-
-        for(int i=0; i<textBlocks.size(); i++) {
-
-            TextBlock thisTextBlock = textBlocks.get(i);
-            if (thisTextBlock == null) {
-                displayTextView.append("<null>");
-                continue;
-            }
-            displayTextView.append(textBlocks.get(i).getValue() + "\n");
-        }
-    }
-
-
-    /**
-     * Check for barcodes
-     * @param imgBitmap
-     * @return
-     */
-    private String imageBarcodeTask(Bitmap imgBitmap) {
-        BarcodeDetector detector =
-                new BarcodeDetector.Builder(getApplicationContext())
-                        .setBarcodeFormats(Barcode.DATA_MATRIX | Barcode.QR_CODE)
-                        .build();
-
-        if(!detector.isOperational()){
-            showToast("Could not set up the detector!");
-            return "";
-        }
-
-        Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
-        SparseArray<Barcode> barcodes = detector.detect(frame);
-        Barcode thisCode=null;
-        String parsedValues = "";
-        if(barcodes.size() < 1) {
-            showToast("No barcodes found.");
-        }
-
-        for(int i=0; i<barcodes.size(); i++) {
-            thisCode = barcodes.valueAt(i);
-            showToast(thisCode.rawValue);
-            parsedValues += "\n" + thisCode.rawValue;
-
-        }
-
-        return parsedValues;
-    }
-
     private void captureImageRoutine() {
-        File imgFile = new File(imageDirPath + "latest.jpeg");
 
-        ImageProcessingCallback imgProcCallback = new ImageProcessingCallback(
-                getApplicationContext(), displayTextView, textToSpeech);
+        displayTextView.setText("Focusing camera...\n");
+        backCamera.autoFocus(new Camera.AutoFocusCallback()
+        {
+            @Override
+            public void onAutoFocus(boolean success, Camera camera)
+            {
+                File imgFile = new File(imageDirPath + "latest.jpeg");
 
-        backCamera.takePicture(null, null,
-                new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback, textToSpeech));
+                ImageProcessingCallback imgProcCallback = new ImageProcessingCallback(
+                        getApplicationContext(), displayTextView, textToSpeech);
+
+                displayTextView.append("Autofocus complete.");
+                backCamera.takePicture(null, null,
+                        new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback, textToSpeech));
+            }
+        });
+
 
     }
 
@@ -411,6 +366,10 @@ public class MainActivity extends AppCompatActivity implements
 
         Camera.Parameters parameters = backCamera.getParameters();
         parameters.setPictureFormat(ImageFormat.JPEG);
+        List<String> focusModes = parameters.getSupportedFocusModes();
+        if(focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+        }
         backCamera.setParameters(parameters);
         SurfaceView mview = new SurfaceView(getBaseContext());
         SurfaceTexture surfaceTexture = new SurfaceTexture(10);
