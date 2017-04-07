@@ -6,6 +6,7 @@ import android.content.IntentFilter;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.view.View;
 import android.content.Context;
@@ -74,12 +75,14 @@ public class MainActivity extends AppCompatActivity implements
     private TextToSpeech textToSpeech;
     private boolean isTtsReady=false;
     private ImageProcessingCallback imgProcessingCallback;
+    private boolean pressedCaptureKeyRecently;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        pressedCaptureKeyRecently=false;
         imageDisplay = (ImageView) findViewById(R.id.imgview);
         displayTextView = (TextView) findViewById(R.id.textview);
         displayTextView.append("<No text yet>");
@@ -405,19 +408,47 @@ public class MainActivity extends AppCompatActivity implements
         int keyCode = event.getKeyCode();
         switch (keyCode) {
             case KeyEvent.KEYCODE_VOLUME_UP:
+
                 if (action == KeyEvent.ACTION_DOWN) {
-                    //showToast("Volume up!");
+                    if(pressedCaptureKeyRecently) {
+                        //detected double press
+
+                        //do double press action
+                    }
+                    pressedCaptureKeyRecently=true;
+
+                    //check for double keypress. In which case, dispatch to
+                    //default volume down functionality
+                    CountDownTimer timeToDoublePress = new CountDownTimer(700, 700) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {}
+
+                        @Override
+                        public void onFinish() {
+                            pressedCaptureKeyRecently=false;
+                        }
+                    };
+                    timeToDoublePress.start();
+                    return super.dispatchKeyEvent(event);
                 }
-                return true;
             case KeyEvent.KEYCODE_VOLUME_DOWN:
                 if (action == KeyEvent.ACTION_DOWN) {
-                    //showToast("Volume down!");
                     captureImageRoutine();
+
                 }
                 return true;
-            default:
-                return super.dispatchKeyEvent(event);
+
         }
+        return super.dispatchKeyEvent(event);
     }
+
+//    @Override
+//    public boolean onKeyDown(int keyCode, KeyEvent keyEvent) {
+//
+//        if(keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+//            displayTextView.append("VOLDOWN\n");
+//        }
+//        return super.onKeyDown(keyCode, keyEvent);
+//    }
 
 }
