@@ -20,6 +20,7 @@ import android.graphics.ImageFormat;
 import android.view.SurfaceView;
 import android.graphics.SurfaceTexture;
 import android.speech.tts.TextToSpeech;
+import android.view.KeyEvent;
 
 //google play services imports
 import com.google.android.gms.common.ConnectionResult;
@@ -349,11 +350,7 @@ public class MainActivity extends AppCompatActivity implements
         return parsedValues;
     }
 
-    public void takePhotoBtnCallback(View view) {
-        if(!isTtsReady) {
-            showToast("TTS module initialized yet!");
-        }
-
+    private void captureImageRoutine() {
         File imgFile = new File(imageDirPath + "latest.jpeg");
 
         ImageProcessingCallback imgProcCallback = new ImageProcessingCallback(
@@ -361,6 +358,15 @@ public class MainActivity extends AppCompatActivity implements
 
         backCamera.takePicture(null, null,
                 new SableyePictureCallback(imgFile, imageDisplay, imgProcCallback, textToSpeech));
+
+    }
+
+    public void takePhotoBtnCallback(View view) {
+        if(!isTtsReady) {
+            showToast("TTS module initialized yet!");
+        }
+
+        captureImageRoutine();
     }
 
     /** Check if this device has a camera
@@ -432,6 +438,27 @@ public class MainActivity extends AppCompatActivity implements
             showToast("Camera not available");
         }
         return c; // returns null if camera is unavailable
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int action = event.getAction();
+        int keyCode = event.getKeyCode();
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+                if (action == KeyEvent.ACTION_DOWN) {
+                    //showToast("Volume up!");
+                }
+                return true;
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                if (action == KeyEvent.ACTION_DOWN) {
+                    //showToast("Volume down!");
+                    captureImageRoutine();
+                }
+                return true;
+            default:
+                return super.dispatchKeyEvent(event);
+        }
     }
 
 }
