@@ -61,7 +61,6 @@ public class ImageProcessingCallback {
         Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
         SparseArray<TextBlock> textBlocks = textRecognizer.detect(frame);
         //clear displaytextview
-        displayTextView.setText("");
 
         String textForSpeech="";
         if(textBlocks.size() < 1) {
@@ -93,13 +92,14 @@ public class ImageProcessingCallback {
     public String imageBarcodeTask(Bitmap imgBitmap) {
         BarcodeDetector detector =
                 new BarcodeDetector.Builder(context)
-                        .setBarcodeFormats(Barcode.DATA_MATRIX | Barcode.QR_CODE)
+                        .setBarcodeFormats(Barcode.ALL_FORMATS)
                         .build();
 
         if(!detector.isOperational()){
             showToast("Could not set up the detector!");
             return "";
         }
+        displayTextView.setText("");
 
         Frame frame = new Frame.Builder().setBitmap(imgBitmap).build();
         SparseArray<Barcode> barcodes = detector.detect(frame);
