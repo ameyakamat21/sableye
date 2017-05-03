@@ -8,6 +8,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Environment;
+import android.view.MotionEvent;
 import android.view.View;
 import android.content.Context;
 import android.widget.Toast;
@@ -440,6 +441,14 @@ public class MainActivity extends AppCompatActivity implements
 
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent motionEvent) {
+
+        displayTextView.append("Got motion event: " + motionEvent.getAction() + "\n");
+        //not super.dispatchTouchEvent() is not called
+        return true;
     }
 
 //    @Override
